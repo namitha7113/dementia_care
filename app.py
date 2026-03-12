@@ -185,37 +185,32 @@ def generate_response(user_input):
     history_context = st.session_state.chat_history[-5:-1] if len(st.session_state.chat_history) > 1 else []
 
     try:
-        messages = [
-            {
-                "role": "system",
-                "content": f"""You are a warm, human-like dementia care companion. 
-Your goal is to provide mental and emotional support through gentle conversation.
+        # Construct a natural, conversational prompt
+        system_msg = f"""You are Sam, a kind and lifelong friend of {safe_memory.get('patient_name', 'Lakshmi')}. 
+You have known her and her family ({', '.join(safe_memory.get('family', {}).values()) if safe_memory.get('family') else 'her loved ones'}) for many years.
 
-CURRENT PATIENT CONTEXT (Grounding):
-- Patient Name: {safe_memory.get('patient_name', 'Unknown')}
-- Family/Friends: {safe_memory.get('family', {})}
-- Preferences: {safe_memory.get('preferences', {})}
-- Recent Events: {safe_memory.get('events', [])[-2:]}
+Your goal is to have a cozy, natural chat. Speak like a real person, not an AI. 
+If she shares a memory, be genuinely interested. If she feels down, be her shoulder to lean on.
+Use what you know about her life (like her home in {safe_memory.get('personal_info', {}).get('location', 'Kochi')}) to make the conversation feel real and grounded.
 
-STRICT RULES:
-1. Be humanly and warm. Acknowledge what the user says.
-2. Use the "CURRENT PATIENT CONTEXT" to be accurate (e.g., if they mention 'father', you know his name is {safe_memory.get('family', {}).get('father', 'Rohan')}).
-3. DO NOT invent or guess any names, dates, or facts not in the context.
-4. If the user shares a memory, respond with empathy and interest.
-5. Keep responses short (1-3 simple sentences).
-6. Maintain a calm, reassuring, and supportive tone.
-7. Emotional Support Level: {intensity}
+Guidelines:
+- Don't sound like a doctor or a robot. Be a friend.
+- It's okay to share the warmth. "I'm right here with you" or "I remember how much you love that."
+- Use her name naturally, but not in every single sentence.
+- If she seems confused, gently steer the conversation to a happy place or a calm thought.
+- Keep it to a few warm sentences.
 """
-            }
-        ]
-        # Add history
+        messages = [{"role": "system", "content": system_msg}]
+        
+        # Add history for context flow
         messages.extend(history_context)
-        # Add current input
+        # Final user input
         messages.append({"role": "user", "content": user_input})
 
         response = client.chat_completion(
             messages=messages,
-            max_tokens=80
+            max_tokens=150,
+            temperature=0.7 # Add a bit of 'soul' to the response
         )
 
         reply = response.choices[0].message.content.strip()
@@ -229,8 +224,9 @@ STRICT RULES:
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
         return reply
 
-    except Exception:
-        safe_reply = "You're not alone. Take a deep breath — everything is okay."
+    except Exception as e:
+        print(f"LLM Error: {e}") # Print error to terminal for debugging
+        safe_reply = "I'm right here with you, Lakshmi. Take a deep breath — everything is going to be just fine."
         st.session_state.chat_history.append({"role": "assistant", "content": safe_reply})
         return safe_reply
 
