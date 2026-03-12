@@ -181,36 +181,29 @@ def generate_response(user_input):
 
     # Prepare context for LLM
     safe_memory = clean_memory_for_llm(memory)
-    # Get last 4 messages for context (2 rounds of convo)
-    history_context = st.session_state.chat_history[-5:-1] if len(st.session_state.chat_history) > 1 else []
+    # Get last 2 messages for shorter context (faster/more stable)
+    history_context = st.session_state.chat_history[-3:-1] if len(st.session_state.chat_history) > 1 else []
 
     try:
-        # Construct a natural, conversational prompt
-        system_msg = f"""You are Sam, a kind and lifelong friend of {safe_memory.get('patient_name', 'Lakshmi')}. 
-You have known her and her family ({', '.join(safe_memory.get('family', {}).values()) if safe_memory.get('family') else 'her loved ones'}) for many years.
+        # Construct a more natural, restrained friend persona
+        system_msg = f"""You are Sam, a dear friend of {safe_memory.get('patient_name', 'Lakshmi')}. 
+You are here to chat and listen. Talk like a real friend sitting nearby.
 
-Your goal is to have a cozy, natural chat. Speak like a real person, not an AI. 
-If she shares a memory, be genuinely interested. If she feels down, be her shoulder to lean on.
-Use what you know about her life (like her home in {safe_memory.get('personal_info', {}).get('location', 'Kochi')}) to make the conversation feel real and grounded.
-
-Guidelines:
-- Don't sound like a doctor or a robot. Be a friend.
-- It's okay to share the warmth. "I'm right here with you" or "I remember how much you love that."
-- Use her name naturally, but not in every single sentence.
-- If she seems confused, gently steer the conversation to a happy place or a calm thought.
-- Keep it to a few warm sentences.
+Natural Conversation Rules:
+1. Don't dump everything you know. Only mention names (like Rohan or Vivek) or places (like Kochi) if {safe_memory.get('patient_name', 'Lakshmi')} mentions them first or if it's very relevant to her current mood.
+2. For a simple "hello", just be warm and ask how she's doing today.
+3. Be a good listener. If she's happy, share the joy. If she's sad, offer a kind word.
+4. Keep it very brief—usually just 1 or 2 warm sentences.
+5. NEVER sound like a computer. Be human.
 """
         messages = [{"role": "system", "content": system_msg}]
-        
-        # Add history for context flow
         messages.extend(history_context)
-        # Final user input
         messages.append({"role": "user", "content": user_input})
 
         response = client.chat_completion(
             messages=messages,
-            max_tokens=150,
-            temperature=0.7 # Add a bit of 'soul' to the response
+            max_tokens=80,
+            temperature=0.7 # Back to a more stable temperature
         )
 
         reply = response.choices[0].message.content.strip()
