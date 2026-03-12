@@ -6,6 +6,18 @@ def retrieve_from_memory(user_input, memory):
     """
 
     user_lower = user_input.lower()
+    
+    # -------- QUESTION VS NARRATIVE FILTER --------
+    # Only proceed if it looks like a question
+    question_indicators = ["who", "what", "where", "when", "name"]
+    is_question = "?" in user_input or any(word in user_lower for word in question_indicators)
+    
+    # Explicitly skip if it starts with narrative markers (e.g., "I remember...")
+    narrative_markers = ["i remember", "i went", "i saw", "i met", "i visited", "i was"]
+    is_narrative = any(marker in user_lower for marker in narrative_markers)
+    
+    if not is_question or is_narrative:
+        return None
 
     # -------- PATIENT NAME --------
     name_triggers = ["what is my name", "what's my name", "who am i", "my name", "tell me my name"]
