@@ -16,21 +16,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MEMORY_PATH = os.path.join(BASE_DIR, "memory_store.json")
 
 
-# ---------------- LOAD ENV ----------------
+from openai import OpenAI
 
-load_dotenv()
-HF_API_KEY = os.getenv("HF_API_KEY")
+# ---------------- OPENROUTER CLIENT ----------------
 
-if not HF_API_KEY:
-    st.error("HF_API_KEY not found. Please check your .env file.")
-    st.stop()
-
-# ---------------- HUGGING FACE CLIENT ----------------
-
-client = InferenceClient(
-    model="HuggingFaceH4/zephyr-7b-beta",
-    token=HF_API_KEY
+client = OpenAI(
+  base_url="https://openrouter.ai/api/v1",
+  api_key=os.getenv("OPENROUTER_API_KEY"),
 )
+
+MODEL_NAME = "stepfun/step-1-8k"
 
 # ---------------- SESSION STATE ----------------
 
@@ -200,10 +195,15 @@ Natural Conversation Rules:
         messages.extend(history_context)
         messages.append({"role": "user", "content": user_input})
 
-        response = client.chat_completion(
+        response = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": "https://localhost:8501", # Optional
+                "X-Title": "Dementia care",               # Optional
+            },
+            model=MODEL_NAME,
             messages=messages,
             max_tokens=80,
-            temperature=0.7 # Back to a more stable temperature
+            temperature=0.7
         )
 
         reply = response.choices[0].message.content.strip()
@@ -434,7 +434,8 @@ Memory:
 {safe_memory}
 """
 
-    response = client.chat_completion(
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=500
     )
