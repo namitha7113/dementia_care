@@ -138,14 +138,24 @@ def generate_response(user_input):
     emotion = detect_emotion(user_input)
     intensity = update_emotional_state(emotion, st.session_state)
 
-    # Step 2: Deterministic memory lookup — ALWAYS checked first, no LLM
-    memory_reply = retrieve_from_memory(user_input, memory)
-    if memory_reply is not None:
-        st.session_state.chat_history.append({"role": "user",      "content": user_input})
-        st.session_state.chat_history.append({"role": "assistant", "content": memory_reply})
-        return memory_reply
+    user_lower = user_input.lower()
 
-    # Step 3: Block factual questions the memory doesn't have — return honest answer
+    # Step 2: Identify Factual Questions vs Narratives
+    question_indicators = ["who", "what", "where", "when", "name"]
+    is_question = "?" in user_input or any(word in user_lower for word in question_indicators)
+    
+    narrative_markers = ["i remember", "i went", "i saw", "i met", "i visited", "i was"]
+    is_narrative = any(marker in user_lower for marker in narrative_markers)
+
+    # Step 3: Trigger Deterministic memory lookup ONLY for factual questions
+    if is_question and not is_narrative:
+        memory_reply = retrieve_from_memory(user_input, memory)
+        if memory_reply is not None:
+            st.session_state.chat_history.append({"role": "user",      "content": user_input})
+            st.session_state.chat_history.append({"role": "assistant", "content": memory_reply})
+            return memory_reply
+
+    # Step 4: Fallback for factual questions memory doesn't have
     factual_keywords = [
         "who", "what", "where", "when", "which", "how",
         "name", "daughter", "son", "mother", "father", "grandfather",
@@ -158,10 +168,9 @@ def generate_response(user_input):
         "doctor", "hospital", "nurse", "caregiver",
         "tell me about", "do i have", "am i", "is my", "are my"
     ]
-    user_lower = user_input.lower()
-    is_factual = any(kw in user_lower for kw in factual_keywords)
+    is_likely_factual = any(kw in user_lower for kw in factual_keywords)
 
-    if is_factual:
+    if is_likely_factual and not is_narrative:
         no_info = "I don't have that information in your records right now. Please ask your caregiver to update your details."
         st.session_state.chat_history.append({"role": "user",      "content": user_input})
         st.session_state.chat_history.append({"role": "assistant", "content": no_info})
