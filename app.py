@@ -176,53 +176,53 @@ def generate_response(user_input):
         st.session_state.chat_history.append({"role": "assistant", "content": no_info})
         return no_info
 
-    # Step 4: Pure emotional / conversational — LLM gets NO patient data (prevents hallucination)
+    # Step 5: Human-like Emotional / Conversational — Grounded in memory to prevent hallucination
     st.session_state.chat_history.append({"role": "user", "content": user_input})
 
+    # Prepare context for LLM
+    safe_memory = clean_memory_for_llm(memory)
+    # Get last 4 messages for context (2 rounds of convo)
+    history_context = st.session_state.chat_history[-5:-1] if len(st.session_state.chat_history) > 1 else []
+
     try:
-        # ⚠️  NO memory context given to LLM — it cannot hallucinate what it doesn't know
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a calm, warm dementia care companion.
-Your ONLY job is to offer gentle emotional comfort and simple reassurance.
+                "content": f"""You are a warm, human-like dementia care companion. 
+Your goal is to provide mental and emotional support through gentle conversation.
 
-Emotional support level: {intensity}
+CURRENT PATIENT CONTEXT (Grounding):
+- Patient Name: {safe_memory.get('patient_name', 'Unknown')}
+- Family/Friends: {safe_memory.get('family', {})}
+- Preferences: {safe_memory.get('preferences', {})}
+- Recent Events: {safe_memory.get('events', [])[-2:]}
 
 STRICT RULES:
-- Respond ONLY to the emotional feeling in the message.
-- Do NOT mention any names, places, dates, or family relationships.
-- Do NOT answer any factual questions — you don't have that information.
-- Do NOT invent or guess anything.
-- Maximum 1-2 short, simple sentences.
-- Use "you" and "you're" — never "I am" or "my".
-- Be warm, calm, and reassuring.
+1. Be humanly and warm. Acknowledge what the user says.
+2. Use the "CURRENT PATIENT CONTEXT" to be accurate (e.g., if they mention 'father', you know his name is {safe_memory.get('family', {}).get('father', 'Rohan')}).
+3. DO NOT invent or guess any names, dates, or facts not in the context.
+4. If the user shares a memory, respond with empathy and interest.
+5. Keep responses short (1-3 simple sentences).
+6. Maintain a calm, reassuring, and supportive tone.
+7. Emotional Support Level: {intensity}
 """
-            },
-            # Only the current user message — no history, no context bleed
-            {"role": "user", "content": user_input}
+            }
         ]
+        # Add history
+        messages.extend(history_context)
+        # Add current input
+        messages.append({"role": "user", "content": user_input})
 
         response = client.chat_completion(
             messages=messages,
-            max_tokens=50
+            max_tokens=80
         )
 
         reply = response.choices[0].message.content.strip()
 
-        # Safety: if reply contains any family/factual words, replace with safe fallback
-        import re as _re
-        danger_pattern = _re.compile(
-            r'\b(grandfather|grandmother|father|mother|brother|sister|son|daughter|'
-            r'husband|wife|friend|uncle|aunt|cousin|doctor|rohan|meena|vivek|ronu|diya|lakshmi)\b',
-            flags=_re.IGNORECASE
-        )
-        if danger_pattern.search(reply):
-            reply = "You're doing well. It's okay to take things one moment at a time."
-
-        # Clip to 2 sentences max
+        # Clip to 3 sentences max for a more human feel
         sentences = [s.strip() for s in reply.split(".") if s.strip()]
-        reply = ". ".join(sentences[:2])
+        reply = ". ".join(sentences[:3])
         if reply and not reply.endswith((".", "?", "!")):
             reply += "."
 
